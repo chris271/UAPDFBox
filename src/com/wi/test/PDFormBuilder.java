@@ -1,14 +1,19 @@
 package com.wi.test;
 
-import org.apache.pdfbox.cos.COSDictionary;
-import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.contentstream.PDContentStream;
+import org.apache.pdfbox.contentstream.operator.Operator;
+import org.apache.pdfbox.cos.*;
+import org.apache.pdfbox.pdfparser.PDFStreamParser;
+import org.apache.pdfbox.pdfwriter.ContentStreamWriter;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
 import org.apache.pdfbox.pdmodel.PDResources;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.COSObjectable;
 import org.apache.pdfbox.pdmodel.common.PDMetadata;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.common.PDStream;
 import org.apache.pdfbox.pdmodel.documentinterchange.logicalstructure.PDMarkInfo;
 import org.apache.pdfbox.pdmodel.documentinterchange.logicalstructure.PDStructureElement;
 import org.apache.pdfbox.pdmodel.documentinterchange.logicalstructure.PDStructureTreeRoot;
@@ -19,8 +24,12 @@ import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDTrueTypeFont;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.graphics.PDXObject;
 import org.apache.pdfbox.pdmodel.graphics.color.PDColor;
 import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceRGB;
+import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
+import org.apache.pdfbox.pdmodel.graphics.pattern.PDAbstractPattern;
+import org.apache.pdfbox.pdmodel.graphics.pattern.PDTilingPattern;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceCharacteristicsDictionary;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary;
@@ -31,6 +40,8 @@ import org.apache.pdfbox.pdmodel.interactive.form.PDRadioButton;
 import org.apache.pdfbox.pdmodel.interactive.form.PDTextField;
 import org.apache.pdfbox.pdmodel.interactive.viewerpreferences.PDViewerPreferences;
 import org.apache.pdfbox.text.PDFMarkedContentExtractor;
+import org.apache.pdfbox.text.TextPosition;
+import org.apache.pdfbox.util.Matrix;
 import org.apache.xmpbox.XMPMetadata;
 import org.apache.xmpbox.schema.XMPSchema;
 import org.apache.xmpbox.schema.XmpSchemaException;
@@ -40,7 +51,9 @@ import javax.xml.transform.TransformerException;
 import java.awt.Color;
 import java.io.IOException;
 import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 class PDFormBuilder {
@@ -56,7 +69,7 @@ class PDFormBuilder {
     private PDStructureElement currentElem = null;
     private PDStructureElement currentForm = null;
     private COSDictionary currentMarkedContentDictionary;
-    private int currentMCID = 0;
+    private int currentMCID = 1;
     private final float PAGE_HEIGHT = PDRectangle.A4.getHeight();
     private final float PAGE_WIDTH = PDRectangle.A4.getWidth();
     private final String DEFAULT_APPEARANCE = "/Helv 10 Tf 0 g";
@@ -118,6 +131,23 @@ class PDFormBuilder {
         documentCatalog.getViewerPreferences().setDisplayDocTitle(true);
         documentCatalog.setAcroForm(acroForm);
         PDStructureTreeRoot structureTreeRoot = new PDStructureTreeRoot();
+        HashMap<String, String> roleMap = new HashMap<>();
+        roleMap.put("Annotation", "Span");
+        roleMap.put("Artifact", "P");
+        roleMap.put("Bibliography", "BibEntry");
+        roleMap.put("Chart", "Figure");
+        roleMap.put("Diagram", "Figure");
+        roleMap.put("DropCap", "Figure");
+        roleMap.put("EndNote", "Note");
+        roleMap.put("FootNote", "Note");
+        roleMap.put("InlineShape", "Figure");
+        roleMap.put("Outline", "Span");
+        roleMap.put("Strikeout", "Span");
+        roleMap.put("Subscript", "Span");
+        roleMap.put("Superscript", "Span");
+        roleMap.put("TextBox", "Art");
+        roleMap.put("Underline", "Span");
+        structureTreeRoot.setRoleMap(roleMap);
         documentCatalog.setStructureTreeRoot(structureTreeRoot);
         PDMarkInfo markInfo = new PDMarkInfo();
         markInfo.setMarked(true);
@@ -242,10 +272,10 @@ class PDFormBuilder {
                 contents.beginMarkedContent(COSName.OC, PDPropertyList.create(currentMarkedContentDictionary));
                 currentElem = addContentToParent(null, StandardStructureTypes.TD, pages.get(pageIndex), currentRow);
                 //Draws the cell itself with the given colors and location.
-                drawDataCell(table.getCell(i, j).getCellColor(), table.getCell(i, j).getBorderColor(),
+                /*drawDataCell(table.getCell(i, j).getCellColor(), table.getCell(i, j).getBorderColor(),
                         x + table.getRows().get(i).getCellPosition(j),
                         y + table.getRowPosition(i),
-                        table.getCell(i, j).getWidth(), table.getRows().get(i).getHeight(), contents);
+                        table.getCell(i, j).getWidth(), table.getRows().get(i).getHeight(), contents);*/
                 if (table.getCell(i, j).getAlign().equalsIgnoreCase(PDConstants.CENTER_ALIGN)) {
 
                     //Draws the given text centered within the current table cell.
@@ -276,7 +306,7 @@ class PDFormBuilder {
                 }
                 //End the marked content and append it's P structure element to the containing TD structure element.
                 contents.endMarkedContent();
-                addContentToParent(COSName.OC, StandardStructureTypes.P, pages.get(pageIndex), currentElem);
+                addContentToParent(COSName.P, StandardStructureTypes.P, pages.get(pageIndex), currentElem);
             }
         }
         contents.close();
@@ -345,7 +375,7 @@ class PDFormBuilder {
     }
 
     //Not working still experimental
-    void checkMarkedContent() throws IOException{
+    void checkMarkedContent() throws IOException {
         PDFMarkedContentExtractor markedContentExtractor = new PDFMarkedContentExtractor("UTF-8");
         markedContentExtractor.processPage(pdf.getPage(0));
         List<PDMarkedContent>  markedContents = markedContentExtractor.getMarkedContents();
@@ -357,6 +387,86 @@ class PDFormBuilder {
                 System.out.println(o.toString());
             }
         }
+    }
+
+    void addTaggingOperators() throws IOException {
+        for (PDPage page : pdf.getPages()) {
+            List<Object> newTokens = createTokensWithoutText(page);
+            PDStream newContents = new PDStream(pdf);
+            writeTokensToStream(newContents, newTokens);
+            page.setContents(newContents);
+        }
+    }
+
+    private static void writeTokensToStream(PDStream newContents, List<Object> newTokens) throws IOException {
+        try (OutputStream out = newContents.createOutputStream(COSName.FLATE_DECODE)) {
+            ContentStreamWriter writer = new ContentStreamWriter(out);
+            writer.writeTokens(newTokens);
+        }
+    }
+
+    private static List<Object> createTokensWithoutText(PDContentStream contentStream) throws IOException {
+        PDFStreamParser parser = new PDFStreamParser(contentStream);
+        Object token = parser.parseNextToken();
+        List<Object> newTokens = new ArrayList<>();
+        Integer currentMCID = 1;
+        while (token != null) {
+            if (token instanceof Operator) {
+                Operator op = (Operator) token;
+                System.out.println("Operator: " + op.getName());
+                if (op.getName().equals("BT")) {
+                    token = parser.parseNextToken();
+                    continue;
+                } else if (op.getName().equals("ET")) {
+                    token = parser.parseNextToken();
+                    continue;
+                } else if (op.getName().equals("EMC")) {
+                    newTokens.add(token);
+                    newTokens.add(Operator.getOperator("ET"));
+                    token = parser.parseNextToken();
+                    continue;
+                } else if (op.getName().equals("Tf")) {
+                    newTokens.add(token);
+                    newTokens.add(COSInteger.get(0));
+                    newTokens.add(Operator.getOperator("Tc"));
+                    newTokens.add(COSInteger.get(0));
+                    newTokens.add(Operator.getOperator("Tw"));
+                    token = parser.parseNextToken();
+                    continue;
+                }
+            } else  if (token instanceof COSInteger) {
+                COSInteger integer = (COSInteger)token;
+                System.out.println(token.getClass().getName().split("\\.")[4] + ": " + (integer.intValue()));
+            } else  if (token instanceof COSString) {
+                COSString string = (COSString)token;
+                System.out.println(token.getClass().getName().split("\\.")[4] + ": " + (string.getString()));
+            } else  if (token instanceof COSName) {
+                COSName name = (COSName)token;
+                if (name.getName().contains("OC")) {
+                    newTokens.add(Operator.getOperator("BT"));
+                    COSDictionary mcidDict = new COSDictionary();
+                    mcidDict.setInt(COSName.MCID, currentMCID);
+                    newTokens.add(COSName.P);
+                    newTokens.add(mcidDict);
+                    System.out.println("New COSDict: " + (mcidDict.toString()));
+                    currentMCID++;
+                    token = parser.parseNextToken();
+                    continue;
+                } else if (name.getName().contains("Prop")) {
+                    token = parser.parseNextToken();
+                    continue;
+                }
+                System.out.println(token.getClass().getName().split("\\.")[4] + ": " + (name.getName()));
+            } else  if (token instanceof COSFloat) {
+                COSFloat floatP = (COSFloat)token;
+                System.out.println(token.getClass().getName().split("\\.")[4] + ": " + (floatP.floatValue()));
+            } else {
+                System.out.println("OTHER");
+            }
+            newTokens.add(token);
+            token = parser.parseNextToken();
+        }
+        return newTokens;
     }
 
     //Add a blank page to the document.

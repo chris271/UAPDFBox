@@ -1,10 +1,12 @@
 package com.wi.test;
 
+import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.documentinterchange.logicalstructure.PDStructureElement;
 import org.apache.xmpbox.schema.XmpSchemaException;
 
 import javax.xml.transform.TransformerException;
 import java.awt.Color;
+import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -61,10 +63,11 @@ public class Main {
                     375, 325, 60, 10, 5, "Choices", Arrays.asList("Yes", "No", "N/A"), 0, false);
             formBuilder.addTextField(
                     435, 320, 100, 135, 5, "AnotherField", "", 0);
-            formBuilder.addPage();
+            formBuilder.addTaggingOperators();
+            formBuilder.saveAndClose("UAEXAMPLE.PDF");
             //formBuilder.checkTreeStructure(formBuilder.getPdf().getDocumentCatalog().getStructureTreeRoot().getKids());
             //formBuilder.checkMarkedContent();
-            formBuilder.saveAndClose("UAEXAMPLE.PDF");
+            //formBuilder.saveAndClose("UAEXAMPLE.PDF");
         } catch (IOException | TransformerException | XmpSchemaException ex) {
             ex.printStackTrace();
         }
