@@ -30,6 +30,7 @@ import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceRGB;
 import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
 import org.apache.pdfbox.pdmodel.graphics.pattern.PDAbstractPattern;
 import org.apache.pdfbox.pdmodel.graphics.pattern.PDTilingPattern;
+import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceCharacteristicsDictionary;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary;
@@ -86,6 +87,18 @@ class PDFormBuilder {
         defaultFont = PDType0Font.load(pdf,
                 new PDTrueTypeFont(PDType1Font.HELVETICA.getCOSObject()).getTrueTypeFont(), true);
         resources.put(COSName.getPDFName("Helv"), defaultFont);
+        /*PDExtendedGraphicsState extendedGraphicsState = new PDExtendedGraphicsState();
+        extendedGraphicsState.getCOSObject().setBoolean(COSName.AIS, false);
+        extendedGraphicsState.getCOSObject().setName(COSName.BM, "Normal");
+        extendedGraphicsState.getCOSObject().setFloat(COSName.CA, 1.0f);
+        extendedGraphicsState.getCOSObject().setBoolean(COSName.OP, false);
+        extendedGraphicsState.getCOSObject().setInt(COSName.OPM, 1);
+        extendedGraphicsState.getCOSObject().setBoolean(COSName.SA, false);
+        extendedGraphicsState.getCOSObject().setName(COSName.TYPE, "ExtGState");
+        extendedGraphicsState.getCOSObject().setName(COSName.SMASK, "None");
+        extendedGraphicsState.getCOSObject().setFloat(COSName.getPDFName("ca"), 1.0f);
+        extendedGraphicsState.getCOSObject().setBoolean(COSName.getPDFName("op"), false);
+        resources.put(COSName.EXT_G_STATE, extendedGraphicsState);*/
         acroForm.setNeedAppearances(true);
         acroForm.setXFA(null);
         acroForm.setDefaultResources(resources);
@@ -154,10 +167,22 @@ class PDFormBuilder {
         documentCatalog.setMarkInfo(markInfo);
 
         //Create document initial pages
+        COSArray cosArray = new COSArray();
+        cosArray.add(COSName.getPDFName("PDF"));
+        cosArray.add(COSName.getPDFName("Text"));
+        COSArray boxArray = new COSArray();
+        boxArray.add(new COSFloat(0.0f));
+        boxArray.add(new COSFloat(0.0f));
+        boxArray.add(new COSFloat(612.0f));
+        boxArray.add(new COSFloat(792.0f));
         for (int i = 0; i < initPages; i++) {
             PDPage page = new PDPage(PDRectangle.LETTER);
             page.getCOSObject().setItem(COSName.getPDFName("Tabs"), COSName.S);
             page.setResources(resources);
+            page.getResources().getCOSObject().setItem(COSName.PROC_SET, cosArray);
+            page.getCOSObject().setItem(COSName.CROP_BOX, boxArray);
+            page.getCOSObject().setItem(COSName.ROTATE, COSInteger.get(0));
+            page.getCOSObject().setItem(COSName.STRUCT_PARENTS, COSInteger.get(0));
             pages.add(page);
             pdf.addPage(pages.get(pages.size() - 1));
         }
@@ -236,7 +261,9 @@ class PDFormBuilder {
 
             //Set annotation to visible when printing.
             widget.setPrinted(true);
-            widget.setParent(((PDRadioButton)fields.get(fields.size() - 1)));
+            widget.getCOSObject().setInt(COSName.STRUCT_PARENT, 1);
+            widget.getCOSObject().setItem(COSName.PARENT, currentForm.getCOSObject());
+            //widget.setParent(((PDRadioButton)fields.get(fields.size() - 1)));
             widgets.add(widget);
             pages.get(pageIndex).getAnnotations().add(widgets.get(widgets.size() - 1));
             if (text) {
@@ -254,6 +281,7 @@ class PDFormBuilder {
 
         ((PDRadioButton) fields.get(fields.size() - 1)).setWidgets(widgets);
         ((PDRadioButton) fields.get(fields.size() - 1)).setDefaultValue(values.get(0));
+        fields.get(fields.size() - 1).getCOSObject().setItem(COSName.PARENT, currentForm.getCOSObject());
     }
 
     //Given a DataTable (Even an irregular table) will draw each cell and any given text.
@@ -395,7 +423,9 @@ class PDFormBuilder {
             PDStream newContents = new PDStream(pdf);
             writeTokensToStream(newContents, newTokens);
             page.setContents(newContents);
+            page.getResources().getCOSObject().removeItem(COSName.PROPERTIES);
         }
+        acroForm.getDefaultResources().getCOSObject().removeItem(COSName.PROPERTIES);
     }
 
     private static void writeTokensToStream(PDStream newContents, List<Object> newTokens) throws IOException {
