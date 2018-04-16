@@ -47,4 +47,18 @@ class Row {
     void setHeight(float height) {
         this.height = height;
     }
+
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append( "{ \n");
+        sb.append("\t\"cells\" : [ ");
+        for (Cell c : cells) {
+            sb.append(c.toString().replace("\n\t", "\n\t\t").replace("\n}", "\n\t}"));
+            sb.append(", ");
+        }
+        sb.deleteCharAt(sb.lastIndexOf(", "));
+        sb.append( "]\n");
+        sb.append("}");
+        return sb.toString();
+    }
 }

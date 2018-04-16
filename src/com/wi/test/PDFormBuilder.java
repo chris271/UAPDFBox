@@ -5,20 +5,14 @@ import org.apache.pdfbox.contentstream.operator.Operator;
 import org.apache.pdfbox.cos.*;
 import org.apache.pdfbox.pdfparser.PDFStreamParser;
 import org.apache.pdfbox.pdfwriter.ContentStreamWriter;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
-import org.apache.pdfbox.pdmodel.PDResources;
-import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.common.COSObjectable;
-import org.apache.pdfbox.pdmodel.common.PDMetadata;
-import org.apache.pdfbox.pdmodel.common.PDRectangle;
-import org.apache.pdfbox.pdmodel.common.PDStream;
+import org.apache.pdfbox.pdmodel.*;
+import org.apache.pdfbox.pdmodel.common.*;
 import org.apache.pdfbox.pdmodel.documentinterchange.logicalstructure.PDMarkInfo;
 import org.apache.pdfbox.pdmodel.documentinterchange.logicalstructure.PDStructureElement;
 import org.apache.pdfbox.pdmodel.documentinterchange.logicalstructure.PDStructureTreeRoot;
 import org.apache.pdfbox.pdmodel.documentinterchange.markedcontent.PDMarkedContent;
 import org.apache.pdfbox.pdmodel.documentinterchange.markedcontent.PDPropertyList;
+import org.apache.pdfbox.pdmodel.documentinterchange.taggedpdf.PDArtifactMarkedContent;
 import org.apache.pdfbox.pdmodel.documentinterchange.taggedpdf.StandardStructureTypes;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDTrueTypeFont;
@@ -70,7 +64,9 @@ class PDFormBuilder {
     private PDStructureElement currentElem = null;
     private PDStructureElement currentForm = null;
     private COSDictionary currentMarkedContentDictionary;
-    private int currentMCID = 1;
+    private COSArray nums = new COSArray();
+    private COSArray numDictionaries = new COSArray();
+    private int currentMCID = 0;
     private final float PAGE_HEIGHT = PDRectangle.A4.getHeight();
     private final float PAGE_WIDTH = PDRectangle.A4.getWidth();
     private final String DEFAULT_APPEARANCE = "/Helv 10 Tf 0 g";
@@ -186,6 +182,8 @@ class PDFormBuilder {
             pages.add(page);
             pdf.addPage(pages.get(pages.size() - 1));
         }
+        nums.add(COSInteger.get(0));
+        nums.add(new COSArray());
 
     }
 
@@ -261,15 +259,12 @@ class PDFormBuilder {
 
             //Set annotation to visible when printing.
             widget.setPrinted(true);
-            widget.getCOSObject().setInt(COSName.STRUCT_PARENT, 1);
-            widget.getCOSObject().setItem(COSName.PARENT, currentForm.getCOSObject());
-            //widget.setParent(((PDRadioButton)fields.get(fields.size() - 1)));
             widgets.add(widget);
             pages.get(pageIndex).getAnnotations().add(widgets.get(widgets.size() - 1));
             if (text) {
                 PDPageContentStream contents = new PDPageContentStream(
                         pdf, pages.get(pageIndex), PDPageContentStream.AppendMode.APPEND, false);
-                setNextMarkedContentDictionary();
+                setNextMarkedContentDictionary("P");
                 contents.beginMarkedContent(COSName.P, PDPropertyList.create(currentMarkedContentDictionary));
                 drawText(rect.getLowerLeftX() + rect.getWidth() / 10,
                         PAGE_HEIGHT - rect.getLowerLeftY() - rect.getHeight() / 2,
@@ -281,29 +276,37 @@ class PDFormBuilder {
 
         ((PDRadioButton) fields.get(fields.size() - 1)).setWidgets(widgets);
         ((PDRadioButton) fields.get(fields.size() - 1)).setDefaultValue(values.get(0));
-        fields.get(fields.size() - 1).getCOSObject().setItem(COSName.PARENT, currentForm.getCOSObject());
     }
 
     //Given a DataTable (Even an irregular table) will draw each cell and any given text.
-    void drawDataTable(DataTable table, float x, float y, int pageIndex) throws IOException{
+    void drawDataTable(DataTable table, float x, float y, int pageIndex) throws IOException {
         //Create a stream for drawing table's contents and append table structure element to the current form's structure element.
-        PDPageContentStream contents = new PDPageContentStream(
-                pdf, pages.get(pageIndex), PDPageContentStream.AppendMode.APPEND, false);
         PDStructureElement currentTable = addContentToParent(null, StandardStructureTypes.TABLE, pages.get(pageIndex), currentForm);
         //Go through each row and add a TR structure element to the table structure element.
         for (int i = 0; i < table.getRows().size(); i++) {
             PDStructureElement currentRow = addContentToParent(null, StandardStructureTypes.TR, pages.get(pageIndex), currentTable);
             //Go through each column and draw the cell and any cell's text with given alignment.
             for(int j = 0; j < table.getRows().get(i).getCells().size(); j++) {
+                PDPageContentStream contents = new PDPageContentStream(
+                        pdf, pages.get(pageIndex), PDPageContentStream.AppendMode.APPEND, false);
                 //Set up the next marked content element with an MCID and create the containing TD structure element.
-                setNextMarkedContentDictionary();
-                contents.beginMarkedContent(COSName.OC, PDPropertyList.create(currentMarkedContentDictionary));
                 currentElem = addContentToParent(null, StandardStructureTypes.TD, pages.get(pageIndex), currentRow);
+                //Make the actual cell rectangle and set as artifact to avoid detection.
+                setNextMarkedContentDictionary(COSName.ARTIFACT.getName());
+                contents.beginMarkedContent(COSName.ARTIFACT, PDPropertyList.create(currentMarkedContentDictionary));
                 //Draws the cell itself with the given colors and location.
-                /*drawDataCell(table.getCell(i, j).getCellColor(), table.getCell(i, j).getBorderColor(),
+                drawDataCell(table.getCell(i, j).getCellColor(), table.getCell(i, j).getBorderColor(),
                         x + table.getRows().get(i).getCellPosition(j),
                         y + table.getRowPosition(i),
-                        table.getCell(i, j).getWidth(), table.getRows().get(i).getHeight(), contents);*/
+                        table.getCell(i, j).getWidth(), table.getRows().get(i).getHeight(), contents);
+                contents.endMarkedContent();
+                currentElem = addContentToParent(COSName.ARTIFACT, StandardStructureTypes.P, pages.get(pageIndex), currentElem);
+                contents.close();
+                //Draw the cell's text as
+                contents = new PDPageContentStream(
+                        pdf, pages.get(pageIndex), PDPageContentStream.AppendMode.APPEND, false);
+                setNextMarkedContentDictionary(COSName.P.getName());
+                contents.beginMarkedContent(COSName.P, PDPropertyList.create(currentMarkedContentDictionary));
                 if (table.getCell(i, j).getAlign().equalsIgnoreCase(PDConstants.CENTER_ALIGN)) {
 
                     //Draws the given text centered within the current table cell.
@@ -334,10 +337,11 @@ class PDFormBuilder {
                 }
                 //End the marked content and append it's P structure element to the containing TD structure element.
                 contents.endMarkedContent();
-                addContentToParent(COSName.P, StandardStructureTypes.P, pages.get(pageIndex), currentElem);
+                addContentToParent(COSName.P, null, pages.get(pageIndex), currentElem);
+                contents.close();
+
             }
         }
-        contents.close();
     }
 
     //Add a rectangle at a given location starting from the top-left corner.
@@ -369,26 +373,49 @@ class PDFormBuilder {
     //Add a structure element to a parent structure element with optional marked content given a non-null name param.
     private PDStructureElement addContentToParent(COSName name, String type, PDPage currentPage, PDStructureElement parent) {
         //Create a structure element and add it to the current section.
-        PDStructureElement structureElement = new PDStructureElement(type, parent);
-        structureElement.setPage(currentPage);
+        PDStructureElement structureElement = null;
+        if (type != null) {
+            structureElement = new PDStructureElement(type, parent);
+            structureElement.setPage(currentPage);
+        }
         //If COSName is not null then there is marked content.
         if (name != null) {
-            PDMarkedContent markedContent = new PDMarkedContent(name, currentMarkedContentDictionary);
-            structureElement.appendKid(markedContent);
+            //nums.add(COSInteger.get(currentMCID - 1));
+            COSDictionary numDict = new COSDictionary();
+            numDict.setInt(COSName.K, currentMCID - 1);
+            numDict.setString(COSName.LANG, "EN-US");
+            numDict.setItem(COSName.PG, currentPage.getCOSObject());
+            if (structureElement != null) {
+                if (!COSName.ARTIFACT.equals(name)) {
+                    structureElement.appendKid(new PDMarkedContent(name, currentMarkedContentDictionary));
+                } else {
+                    structureElement.appendKid(new PDArtifactMarkedContent(currentMarkedContentDictionary));
+                }
+                numDict.setItem(COSName.P, structureElement.getCOSObject());
+            } else {
+                if (!COSName.ARTIFACT.equals(name)) {
+                    parent.appendKid(new PDMarkedContent(name, currentMarkedContentDictionary));
+                } else {
+                    parent.appendKid(new PDArtifactMarkedContent(currentMarkedContentDictionary));
+                }
+                numDict.setItem(COSName.P, parent.getCOSObject());
+            }
+            numDict.setName(COSName.S, name.getName());
+            //nums.add(numDict);
+            numDictionaries.add(numDict);
         }
-        parent.appendKid(structureElement);
+        if (structureElement != null) {
+            parent.appendKid(structureElement);
+        }
         return structureElement;
     }
 
     //Assign an id for the next marked content element.
-    private void setNextMarkedContentDictionary() {
+    private void setNextMarkedContentDictionary(String tag) {
         currentMarkedContentDictionary = new COSDictionary();
-        currentMarkedContentDictionary.setName("Tag", "P");
-        currentMarkedContentDictionary.setName("Role", "S");
-        currentMarkedContentDictionary.setString(COSName.ACTUAL_TEXT, "TEXT");
+        currentMarkedContentDictionary.setName("Tag", tag);
         currentMarkedContentDictionary.setInt(COSName.MCID, currentMCID);
         currentMCID++;
-
     }
 
     //List all alternate descriptions given root struct elem.
@@ -418,14 +445,15 @@ class PDFormBuilder {
     }
 
     void addTaggingOperators() throws IOException {
-        for (PDPage page : pdf.getPages()) {
-            List<Object> newTokens = createTokensWithoutText(page);
-            PDStream newContents = new PDStream(pdf);
-            writeTokensToStream(newContents, newTokens);
-            page.setContents(newContents);
-            page.getResources().getCOSObject().removeItem(COSName.PROPERTIES);
-        }
-        acroForm.getDefaultResources().getCOSObject().removeItem(COSName.PROPERTIES);
+        addParentTree();
+    }
+
+    void addParentTree() {
+        COSDictionary dict = new COSDictionary();
+        nums.set(1, numDictionaries);
+        dict.setItem(COSName.NUMS, nums);
+        PDNumberTreeNode numberTreeNode = new PDNumberTreeNode(dict, dict.getClass());
+        pdf.getDocumentCatalog().getStructureTreeRoot().setParentTree(numberTreeNode);
     }
 
     private static void writeTokensToStream(PDStream newContents, List<Object> newTokens) throws IOException {

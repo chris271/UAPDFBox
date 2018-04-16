@@ -29,4 +29,18 @@ class DataTable {
     void setRows(List<Row> rows) {
         this.rows = rows;
     }
+
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append( "{ \n");
+        sb.append("\t\"rows\" : [ ");
+        for (Row r : rows) {
+            sb.append(r.toString().replace("\n\t", "\n\t\t").replace("\n}", "\n\t}"));
+            sb.append(", ");
+        }
+        sb.deleteCharAt(sb.lastIndexOf(", "));
+        sb.append( "]\n");
+        sb.append("}");
+        return sb.toString();
+    }
 }

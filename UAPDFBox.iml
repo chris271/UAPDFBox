@@ -56,5 +56,7 @@
     </orderEntry>
     <orderEntry type="library" name="commons-logging:commons-logging:1.2" level="project" />
     <orderEntry type="library" name="com.lowagie:itext:4.2.0" level="project" />
+    <orderEntry type="library" name="com.fasterxml.jackson.core:jackson-core:2.8.4" level="project" />
+    <orderEntry type="library" name="com.fasterxml.jackson.core:jackson-databind:2.8.4" level="project" />
   </component>
 </module>

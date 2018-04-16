@@ -111,4 +111,32 @@ class Cell {
     public void setWidth(float width) {
         this.width = width;
     }
+    
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{ \n");
+        sb.append("\t\"Text\": \"");
+        sb.append(getText());
+        sb.append("\", \n");
+        sb.append("\t\"Width\": \"");
+        sb.append(getWidth());
+        sb.append("\", \n");
+        sb.append("\t\"FontSize\": \"");
+        sb.append(getFontSize());
+        sb.append("\", \n");
+        sb.append("\t\"Align\": \"");
+        sb.append(getAlign());
+        sb.append("\", \n");
+        sb.append("\t\"TextColor\": \"");
+        sb.append(getTextColor());
+        sb.append("\", \n");
+        sb.append("\t\"BorderColor\": \"");
+        sb.append(getBorderColor());
+        sb.append("\", \n");
+        sb.append("\t\"CellColor\": \"");
+        sb.append(getCellColor());
+        sb.append("\", \n");
+        sb.append("}");
+        return sb.toString();
+    }
 }
