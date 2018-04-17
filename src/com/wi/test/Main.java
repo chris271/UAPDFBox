@@ -23,7 +23,6 @@ public class Main {
             formBuilder.addRoot();
             PDStructureElement part1 = formBuilder.addPart();
             PDStructureElement sec1 = formBuilder.addSection(part1);
-            formBuilder.addForm(sec1);
             formBuilder.setFieldBGColor(PDConstants.WHITE);
             formBuilder.setFieldBorderColor(PDConstants.BLACK);
             DataTable table = new DataTable();
@@ -58,7 +57,7 @@ public class Main {
                     new Cell("", 5, 20, PDConstants.TOP_ALIGN, "N/A", ""),
                     new Cell("", 5, 100, PDConstants.TOP_ALIGN, "", "Text Box")),
                     135));
-            formBuilder.drawDataTable(table, 50, 250, 0, Arrays.asList("Yes", "No", "N/A"), "Header 4");
+            formBuilder.drawDataTable(table, 50, 250, 0, Arrays.asList("Yes", "No", "N/A"), "Header 4", sec1);
             formBuilder.addParentTree();
             formBuilder.saveAndClose("UAEXAMPLE.PDF");
             //formBuilder.checkTreeStructure(formBuilder.getPdf().getDocumentCatalog().getStructureTreeRoot().getKids());

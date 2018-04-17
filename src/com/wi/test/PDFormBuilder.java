@@ -1,10 +1,6 @@
 package com.wi.test;
 
-import org.apache.pdfbox.contentstream.PDContentStream;
-import org.apache.pdfbox.contentstream.operator.Operator;
 import org.apache.pdfbox.cos.*;
-import org.apache.pdfbox.pdfparser.PDFStreamParser;
-import org.apache.pdfbox.pdfwriter.ContentStreamWriter;
 import org.apache.pdfbox.pdmodel.*;
 import org.apache.pdfbox.pdmodel.common.*;
 import org.apache.pdfbox.pdmodel.documentinterchange.logicalstructure.PDMarkInfo;
@@ -19,13 +15,8 @@ import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDTrueTypeFont;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
-import org.apache.pdfbox.pdmodel.graphics.PDXObject;
 import org.apache.pdfbox.pdmodel.graphics.color.PDColor;
 import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceRGB;
-import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
-import org.apache.pdfbox.pdmodel.graphics.pattern.PDAbstractPattern;
-import org.apache.pdfbox.pdmodel.graphics.pattern.PDTilingPattern;
-import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceCharacteristicsDictionary;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary;
@@ -35,9 +26,6 @@ import org.apache.pdfbox.pdmodel.interactive.form.PDField;
 import org.apache.pdfbox.pdmodel.interactive.form.PDRadioButton;
 import org.apache.pdfbox.pdmodel.interactive.form.PDTextField;
 import org.apache.pdfbox.pdmodel.interactive.viewerpreferences.PDViewerPreferences;
-import org.apache.pdfbox.text.PDFMarkedContentExtractor;
-import org.apache.pdfbox.text.TextPosition;
-import org.apache.pdfbox.util.Matrix;
 import org.apache.xmpbox.XMPMetadata;
 import org.apache.xmpbox.schema.XMPSchema;
 import org.apache.xmpbox.schema.XmpSchemaException;
@@ -47,7 +35,6 @@ import javax.xml.transform.TransformerException;
 import java.awt.Color;
 import java.io.IOException;
 import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
 import java.util.*;
 
 class PDFormBuilder {
@@ -145,7 +132,6 @@ class PDFormBuilder {
         roleMap.put("Strikeout", "Span");
         roleMap.put("Subscript", "Span");
         roleMap.put("Superscript", "Span");
-        roleMap.put("TextBox", "Art");
         roleMap.put("Underline", "Span");
         structureTreeRoot.setRoleMap(roleMap);
         documentCatalog.setStructureTreeRoot(structureTreeRoot);
@@ -178,7 +164,7 @@ class PDFormBuilder {
     }
 
     //Add a text box at a given location starting from the top-left corner.
-    private PDObjectReference addTextField(float x, float y, float width, float height, String name, int pageIndex) throws IOException {
+    private PDAnnotationWidget addTextField(float x, float y, float width, float height, String name, int pageIndex) throws IOException {
 
         PDRectangle rect = new PDRectangle(x, PAGE_HEIGHT - height - y, width, height);
 
@@ -194,27 +180,27 @@ class PDFormBuilder {
         // Specify a widget associated with the field.
         PDAnnotationWidget widget = new PDAnnotationWidget();
         widget.setRectangle(rect);
-        widget.setPage(pages.get(pageIndex));
         PDAppearanceCharacteristicsDictionary fieldAppearance
                 = new PDAppearanceCharacteristicsDictionary(new COSDictionary());
         fieldAppearance.setBorderColour(fieldBorderColor);
         fieldAppearance.setBackground(fieldBGColor);
         widget.setAppearanceCharacteristics(fieldAppearance);
-        //widget.setParent(((PDTextField)fields.get(fields.size() - 1)));
+        widget.setPage(pages.get(pageIndex));
         widget.setPrinted(true);
 
         //Add object reference to widget for tagging purposes.
         PDObjectReference objectReference = new PDObjectReference();
         objectReference.setReferencedObject(widget);
         annotationRefs.add(objectReference);
-        widget.getCOSObject().setInt(COSName.STRUCT_PARENT, currentMCID);
+        widget.getCOSObject().setInt(COSName.STRUCT_PARENT, currentStructParent);
         currentStructParent++;
 
         //Add the widget to the page.
         widgets.add(widget);
         pages.get(pageIndex).getAnnotations().add(widgets.get(widgets.size() - 1));
         ((PDTextField)fields.get(fields.size() - 1)).setWidgets(Collections.singletonList(widgets.get(widgets.size() - 1)));
-        return objectReference;
+
+        return widgets.get(widgets.size() - 1);
     }
 
     //Add radio buttons at a given location starting from the top-left corner with or without text labels.
@@ -243,13 +229,14 @@ class PDFormBuilder {
         dict.setItem(COSName.getPDFName(values.get(valueIndex)), new COSDictionary());
         PDAppearanceEntry appearanceEntry = new PDAppearanceEntry(dict);
         appearance.setNormalAppearance(appearanceEntry);
+        widget.setAppearance(appearance);
         widget.setPrinted(true);
 
         //Add object reference to widget for tagging purposes.
         PDObjectReference objectReference = new PDObjectReference();
         objectReference.setReferencedObject(widget);
         annotationRefs.add(objectReference);
-        widget.getCOSObject().setInt(COSName.STRUCT_PARENT, currentMCID);
+        widget.getCOSObject().setInt(COSName.STRUCT_PARENT, currentStructParent);
         currentStructParent++;
 
         //Add the widget to the page.
@@ -260,10 +247,11 @@ class PDFormBuilder {
     }
 
     //Given a DataTable (Even an irregular table) will draw each cell and any given text.
-    void drawDataTable(DataTable table, float x, float y, int pageIndex, List<String> radioValues, String radioName) throws IOException {
+    void drawDataTable(DataTable table, float x, float y, int pageIndex, List<String> radioValues,
+                       String radioName, PDStructureElement parent) throws IOException {
 
         //Create a stream for drawing table's contents and append table structure element to the current form's structure element.
-        PDStructureElement currentTable = addContentToParent(null, StandardStructureTypes.TABLE, pages.get(pageIndex), currentForm);
+        PDStructureElement currentTable = addContentToParent(null, StandardStructureTypes.TABLE, pages.get(pageIndex), parent);
 
         //Go through each row and add a TR structure element to the table structure element.
         for (int i = 0; i < table.getRows().size(); i++) {
@@ -335,36 +323,18 @@ class PDFormBuilder {
 
                 //Add a radio button widget.
                 if (!table.getCell(i, j).getRbVal().isEmpty()) {
-                    PDStructureElement fieldElem = new PDStructureElement(StandardStructureTypes.RB, currentElem);
+                    PDStructureElement fieldElem = new PDStructureElement(StandardStructureTypes.FORM, currentElem);
                     radioWidgets.add(addRadioButton(
                             x + table.getRows().get(i).getCellPosition(j) -
                                     radioWidgets.size() * 10 + table.getCell(i, j).getWidth() / 4,
                             y + table.getRowPosition(i),
                             table.getCell(i, j).getWidth() * 1.5f, 20,
                             radioValues, pageIndex, radioWidgets.size()));
-
-                    COSDictionary annotDict = new COSDictionary();
-                    COSArray annotArray = new COSArray();
-                    annotArray.add(COSInteger.get(currentMCID));
-                    annotArray.add(annotationRefs.get(annotationRefs.size() - 1));
-                    annotDict.setItem(COSName.K, annotArray);
-                    annotDict.setString(COSName.LANG, "EN-US");
-                    annotDict.setItem(COSName.P, fieldElem.getCOSObject());
-                    annotDict.setItem(COSName.PG, pages.get(0).getCOSObject());
-                    annotDict.setName(COSName.S, StandardStructureTypes.RB);
-                    annotDicts.add(annotDict);
-
-                    setNextMarkedContentDictionary(StandardStructureTypes.RB);
                     fieldElem.setPage(pages.get(pageIndex));
-                    COSDictionary numDict = new COSDictionary();
-                    numDict.setInt(COSName.K, currentMCID - 1);
-                    numDict.setString(COSName.LANG, "EN-US");
-                    numDict.setItem(COSName.PG, pages.get(pageIndex).getCOSObject());
-                    numDict.setItem(COSName.P, fieldElem.getCOSObject());
-                    numDict.setName(COSName.S, StandardStructureTypes.RB);
-                    numDictionaries.add(numDict);
-                    fieldElem.appendKid(annotationRefs.get(annotationRefs.size() - 1));
-                    currentElem.appendKid(fieldElem);
+                    COSArray kArray = new COSArray();
+                    kArray.add(COSInteger.get(currentMCID));
+                    fieldElem.getCOSObject().setItem(COSName.K, kArray);
+                    addWidgetContent(annotationRefs.get(annotationRefs.size() - 1), fieldElem, StandardStructureTypes.FORM, pageIndex);
                 }
 
                 if (radioValues.size() == radioWidgets.size()) {
@@ -382,38 +352,38 @@ class PDFormBuilder {
 
                 //Add a text field in the current cell.
                 if (!table.getCell(i, j).getTextVal().isEmpty()) {
-                    PDStructureElement fieldElem = new PDStructureElement(StandardStructureTypes.RT, currentElem);
-                    PDObjectReference objectReference = addTextField(x + table.getRows().get(i).getCellPosition(j),
+                    PDStructureElement fieldElem = new PDStructureElement(StandardStructureTypes.FORM, currentElem);
+                    addTextField(x + table.getRows().get(i).getCellPosition(j),
                             y + table.getRowPosition(i),
                             table.getCell(i, j).getWidth(), table.getRows().get(i).getHeight(),
                             table.getCell(i, j).getTextVal(), pageIndex);
-
-                    COSDictionary annotDict = new COSDictionary();
-                    COSArray annotArray = new COSArray();
-                    annotArray.add(COSInteger.get(currentMCID));
-                    annotArray.add(objectReference);
-                    annotDict.setItem(COSName.K, annotArray);
-                    annotDict.setString(COSName.LANG, "EN-US");
-                    annotDict.setItem(COSName.P, fieldElem.getCOSObject());
-                    annotDict.setItem(COSName.PG, pages.get(0).getCOSObject());
-                    annotDict.setName(COSName.S, StandardStructureTypes.RT);
-                    annotDicts.add(annotDict);
-
-                    setNextMarkedContentDictionary(StandardStructureTypes.RT);
                     fieldElem.setPage(pages.get(pageIndex));
-                    COSDictionary numDict = new COSDictionary();
-                    numDict.setInt(COSName.K, currentMCID - 1);
-                    numDict.setString(COSName.LANG, "EN-US");
-                    numDict.setItem(COSName.PG, pages.get(pageIndex).getCOSObject());
-                    numDict.setItem(COSName.P, fieldElem.getCOSObject());
-                    numDict.setName(COSName.S, StandardStructureTypes.RT);
-                    numDictionaries.add(numDict);
-                    fieldElem.appendKid(objectReference);
-                    currentElem.appendKid(fieldElem);
+                    COSArray kArray = new COSArray();
+                    kArray.add(COSInteger.get(currentMCID));
+                    fieldElem.getCOSObject().setItem(COSName.K, kArray);
+                    addWidgetContent(annotationRefs.get(annotationRefs.size() - 1), fieldElem, StandardStructureTypes.FORM, pageIndex);
                 }
 
             }
         }
+    }
+
+    private void addWidgetContent(PDObjectReference objectReference, PDStructureElement fieldElem, String type, int pageIndex) {
+        COSDictionary annotDict = new COSDictionary();
+        COSArray annotArray = new COSArray();
+        annotArray.add(COSInteger.get(currentMCID));
+        annotArray.add(objectReference);
+        annotDict.setItem(COSName.K, annotArray);
+        annotDict.setString(COSName.LANG, "EN-US");
+        annotDict.setItem(COSName.P, currentElem.getCOSObject());
+        annotDict.setItem(COSName.PG, pages.get(0).getCOSObject());
+        annotDict.setName(COSName.S, type);
+        annotDicts.add(annotDict);
+
+        setNextMarkedContentDictionary(type);
+        numDictionaries.add(annotDict);
+        fieldElem.appendKid(objectReference);
+        currentElem.appendKid(fieldElem);
     }
 
     //Add a rectangle at a given location starting from the top-left corner.
@@ -499,6 +469,7 @@ class PDFormBuilder {
         }
         dict.setItem(COSName.NUMS, nums);
         PDNumberTreeNode numberTreeNode = new PDNumberTreeNode(dict, dict.getClass());
+        pdf.getDocumentCatalog().getStructureTreeRoot().setParentTreeNextKey(currentStructParent);
         pdf.getDocumentCatalog().getStructureTreeRoot().setParentTree(numberTreeNode);
     }
 
@@ -537,14 +508,6 @@ class PDFormBuilder {
         parent.appendKid(sect);
         currentElem = sect;
         return sect;
-    }
-
-    //Adds a FORM structure element to the given parent.
-    void addForm(PDStructureElement parent) {
-        PDStructureElement form = new PDStructureElement(StandardStructureTypes.FORM, parent);
-        parent.appendKid(form);
-        currentElem = form;
-        currentForm = form;
     }
 
     void saveAndClose(String filePath) throws IOException {
