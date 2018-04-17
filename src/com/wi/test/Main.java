@@ -16,7 +16,7 @@ import java.util.Date;
 public class Main {
 
     public static void main(String[] args) {
-        SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy HH:ss:SSS");
+        SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss:SSS");
         System.out.println(dateFormat.format(new Date()));
         try {
             PDFormBuilder formBuilder = new PDFormBuilder(1, "UA EXAMPLE");

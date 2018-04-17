@@ -55,7 +55,7 @@ class PDFormBuilder {
     private PDDocument pdf = null;
     private PDAcroForm acroForm = null;
     private ArrayList<PDPage> pages = new ArrayList<>();
-    private ArrayList<PDStructureElement> annotationStructs = new ArrayList<>();
+    private ArrayList<COSDictionary> annotDicts = new ArrayList<>();
     private ArrayList<PDObjectReference> annotationRefs = new ArrayList<>();
     private ArrayList<PDField> fields = new ArrayList<>();
     private ArrayList<PDAnnotationWidget> widgets = new ArrayList<>();
@@ -178,7 +178,7 @@ class PDFormBuilder {
     }
 
     //Add a text box at a given location starting from the top-left corner.
-    private PDAnnotationWidget addTextField(float x, float y, float width, float height, String name, int pageIndex) throws IOException {
+    private PDObjectReference addTextField(float x, float y, float width, float height, String name, int pageIndex) throws IOException {
 
         PDRectangle rect = new PDRectangle(x, PAGE_HEIGHT - height - y, width, height);
 
@@ -200,21 +200,21 @@ class PDFormBuilder {
         fieldAppearance.setBorderColour(fieldBorderColor);
         fieldAppearance.setBackground(fieldBGColor);
         widget.setAppearanceCharacteristics(fieldAppearance);
-        widget.setParent(((PDTextField)fields.get(fields.size() - 1)));
+        //widget.setParent(((PDTextField)fields.get(fields.size() - 1)));
         widget.setPrinted(true);
 
         //Add object reference to widget for tagging purposes.
         PDObjectReference objectReference = new PDObjectReference();
         objectReference.setReferencedObject(widget);
         annotationRefs.add(objectReference);
-        widget.getCOSObject().setInt(COSName.STRUCT_PARENT, currentStructParent);
+        widget.getCOSObject().setInt(COSName.STRUCT_PARENT, currentMCID);
         currentStructParent++;
 
         //Add the widget to the page.
         widgets.add(widget);
         pages.get(pageIndex).getAnnotations().add(widgets.get(widgets.size() - 1));
         ((PDTextField)fields.get(fields.size() - 1)).setWidgets(Collections.singletonList(widgets.get(widgets.size() - 1)));
-        return widgets.get(widgets.size() - 1);
+        return objectReference;
     }
 
     //Add radio buttons at a given location starting from the top-left corner with or without text labels.
@@ -249,7 +249,7 @@ class PDFormBuilder {
         PDObjectReference objectReference = new PDObjectReference();
         objectReference.setReferencedObject(widget);
         annotationRefs.add(objectReference);
-        widget.getCOSObject().setInt(COSName.STRUCT_PARENT, currentStructParent);
+        widget.getCOSObject().setInt(COSName.STRUCT_PARENT, currentMCID);
         currentStructParent++;
 
         //Add the widget to the page.
@@ -335,22 +335,44 @@ class PDFormBuilder {
 
                 //Add a radio button widget.
                 if (!table.getCell(i, j).getRbVal().isEmpty()) {
-                    //PDStructureElement fieldElem = new PDStructureElement(StandardStructureTypes.RB, currentElem);
+                    PDStructureElement fieldElem = new PDStructureElement(StandardStructureTypes.RB, currentElem);
                     radioWidgets.add(addRadioButton(
                             x + table.getRows().get(i).getCellPosition(j) -
                                     radioWidgets.size() * 10 + table.getCell(i, j).getWidth() / 4,
                             y + table.getRowPosition(i),
                             table.getCell(i, j).getWidth() * 1.5f, 20,
                             radioValues, pageIndex, radioWidgets.size()));
-                    //currentElem.appendKid(fieldElem);
-                    //fieldElem.appendKid(annotationRefs.get(0));
+
+                    COSDictionary annotDict = new COSDictionary();
+                    COSArray annotArray = new COSArray();
+                    annotArray.add(COSInteger.get(currentMCID));
+                    annotArray.add(annotationRefs.get(annotationRefs.size() - 1));
+                    annotDict.setItem(COSName.K, annotArray);
+                    annotDict.setString(COSName.LANG, "EN-US");
+                    annotDict.setItem(COSName.P, fieldElem.getCOSObject());
+                    annotDict.setItem(COSName.PG, pages.get(0).getCOSObject());
+                    annotDict.setName(COSName.S, StandardStructureTypes.RB);
+                    annotDicts.add(annotDict);
+
+                    setNextMarkedContentDictionary(StandardStructureTypes.RB);
+                    fieldElem.setPage(pages.get(pageIndex));
+                    COSDictionary numDict = new COSDictionary();
+                    numDict.setInt(COSName.K, currentMCID - 1);
+                    numDict.setString(COSName.LANG, "EN-US");
+                    numDict.setItem(COSName.PG, pages.get(pageIndex).getCOSObject());
+                    numDict.setItem(COSName.P, fieldElem.getCOSObject());
+                    numDict.setName(COSName.S, StandardStructureTypes.RB);
+                    numDictionaries.add(numDict);
+                    fieldElem.appendKid(annotationRefs.get(annotationRefs.size() - 1));
+                    currentElem.appendKid(fieldElem);
                 }
 
                 if (radioValues.size() == radioWidgets.size()) {
                     //Create the form field and add it to the acroForm object with a given name.
                     fields.add(new PDRadioButton(acroForm));
                     fields.get(fields.size() - 1).setPartialName(radioName);
-                    fields.get(fields.size() - 1).setAlternateFieldName(radioName + " Row " + (i + 1) + " Column " + (j + 1));
+                    fields.get(fields.size() - 1).setAlternateFieldName(
+                            radioName + " Row " + (i + 1) + " Column " + (j - radioValues.size() - 1));
                     ((PDRadioButton)fields.get(fields.size() - 1)).setExportValues(radioValues);
                     fields.get(fields.size() - 1).getCOSObject().setName(COSName.DV, radioValues.get(0));
                     acroForm.getFields().add(fields.get(fields.size() - 1));
@@ -360,10 +382,34 @@ class PDFormBuilder {
 
                 //Add a text field in the current cell.
                 if (!table.getCell(i, j).getTextVal().isEmpty()) {
-                    addTextField(x + table.getRows().get(i).getCellPosition(j),
+                    PDStructureElement fieldElem = new PDStructureElement(StandardStructureTypes.RT, currentElem);
+                    PDObjectReference objectReference = addTextField(x + table.getRows().get(i).getCellPosition(j),
                             y + table.getRowPosition(i),
                             table.getCell(i, j).getWidth(), table.getRows().get(i).getHeight(),
                             table.getCell(i, j).getTextVal(), pageIndex);
+
+                    COSDictionary annotDict = new COSDictionary();
+                    COSArray annotArray = new COSArray();
+                    annotArray.add(COSInteger.get(currentMCID));
+                    annotArray.add(objectReference);
+                    annotDict.setItem(COSName.K, annotArray);
+                    annotDict.setString(COSName.LANG, "EN-US");
+                    annotDict.setItem(COSName.P, fieldElem.getCOSObject());
+                    annotDict.setItem(COSName.PG, pages.get(0).getCOSObject());
+                    annotDict.setName(COSName.S, StandardStructureTypes.RT);
+                    annotDicts.add(annotDict);
+
+                    setNextMarkedContentDictionary(StandardStructureTypes.RT);
+                    fieldElem.setPage(pages.get(pageIndex));
+                    COSDictionary numDict = new COSDictionary();
+                    numDict.setInt(COSName.K, currentMCID - 1);
+                    numDict.setString(COSName.LANG, "EN-US");
+                    numDict.setItem(COSName.PG, pages.get(pageIndex).getCOSObject());
+                    numDict.setItem(COSName.P, fieldElem.getCOSObject());
+                    numDict.setName(COSName.S, StandardStructureTypes.RT);
+                    numDictionaries.add(numDict);
+                    fieldElem.appendKid(objectReference);
+                    currentElem.appendKid(fieldElem);
                 }
 
             }
@@ -449,16 +495,7 @@ class PDFormBuilder {
         nums.add(numDictionaries);
         for (int i = 1; i < currentStructParent; i++) {
             nums.add(COSInteger.get(i));
-            COSDictionary annotDict = new COSDictionary();
-            COSArray annotArray = new COSArray();
-            annotArray.add(COSInteger.get(i * 2));
-            annotArray.add(annotationRefs.get(i - 1));
-            annotDict.setItem(COSName.K, annotArray);
-            annotDict.setString(COSName.LANG, "EN-US");
-            annotDict.setItem(COSName.P, currentElem.getCOSObject());
-            annotDict.setItem(COSName.PG, pages.get(0).getCOSObject());
-            annotDict.setName(COSName.S, "RB");
-            nums.add(annotDict);
+            nums.add(annotDicts.get(i - 1));
         }
         dict.setItem(COSName.NUMS, nums);
         PDNumberTreeNode numberTreeNode = new PDNumberTreeNode(dict, dict.getClass());
@@ -531,7 +568,7 @@ class PDFormBuilder {
         return fieldBGColor;
     }
 
-    public void setFieldBGColor(PDColor fieldBGColor) {
+    void setFieldBGColor(PDColor fieldBGColor) {
         this.fieldBGColor = fieldBGColor;
     }
 
@@ -539,33 +576,8 @@ class PDFormBuilder {
         return fieldBorderColor;
     }
 
-    public void setFieldBorderColor(PDColor fieldBorderColor) {
+    void setFieldBorderColor(PDColor fieldBorderColor) {
         this.fieldBorderColor = fieldBorderColor;
     }
-
-/* RANDOM STUFF
-PDMarkedContent markedContent = new PDMarkedContent(COSName.FT, widget.getCOSObject());
-COSDictionary dictionary = new COSDictionary();
-dictionary.setName(COSName.TYPE, "OBJR");
-dictionary.setItem(COSName.OBJ, widget);
-PDObjectReference reference = new PDObjectReference(dictionary);
-reference.setReferencedObject(widget);
-System.out.println(reference.getReferencedObject().getCOSObject());
-currentForm.appendKid(reference);
-COSDictionary dictionary = new COSDictionary();
-dictionary.setName("Role", PDPrintFieldAttributeObject.ROLE_RB);
-dictionary.setName("checked", "off");
-dictionary.setString("Desc", "Radio Button");
-dictionary.setName(COSName.O, "PrintField");
-currentMarkedContentDictionary.setItem(COSName.PROPERTIES, prop);
-PDPrintFieldAttributeObject fieldAttributeObject = new PDPrintFieldAttributeObject(dictionary);
-PDStructureElement structureElement = new PDStructureElement(StandardStructureTypes.RB, currentForm);
-structureElement.setPage(pages.get(pageIndex));
-structureElement.addAttribute(fieldAttributeObject);
-currentForm.appendKid(structureElement);
-addContentToParent(COSName.WIDGET, StandardStructureTypes.P, pages.get(pageIndex), currentForm, false);
-System.out.println(markedContent.getMCID());
-System.out.println(markedContent.getActualText());
- */
 
 }
