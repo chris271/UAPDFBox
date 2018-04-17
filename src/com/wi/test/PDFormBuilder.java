@@ -8,6 +8,7 @@ import org.apache.pdfbox.pdfwriter.ContentStreamWriter;
 import org.apache.pdfbox.pdmodel.*;
 import org.apache.pdfbox.pdmodel.common.*;
 import org.apache.pdfbox.pdmodel.documentinterchange.logicalstructure.PDMarkInfo;
+import org.apache.pdfbox.pdmodel.documentinterchange.logicalstructure.PDObjectReference;
 import org.apache.pdfbox.pdmodel.documentinterchange.logicalstructure.PDStructureElement;
 import org.apache.pdfbox.pdmodel.documentinterchange.logicalstructure.PDStructureTreeRoot;
 import org.apache.pdfbox.pdmodel.documentinterchange.markedcontent.PDMarkedContent;
@@ -47,16 +48,17 @@ import java.awt.Color;
 import java.io.IOException;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 class PDFormBuilder {
 
     private PDDocument pdf = null;
     private PDAcroForm acroForm = null;
     private ArrayList<PDPage> pages = new ArrayList<>();
+    private ArrayList<PDStructureElement> annotationStructs = new ArrayList<>();
+    private ArrayList<PDObjectReference> annotationRefs = new ArrayList<>();
     private ArrayList<PDField> fields = new ArrayList<>();
+    private ArrayList<PDAnnotationWidget> widgets = new ArrayList<>();
     private PDColor fieldBGColor = null;
     private PDColor fieldBorderColor = null;
     private PDFont defaultFont = null;
@@ -67,6 +69,7 @@ class PDFormBuilder {
     private COSArray nums = new COSArray();
     private COSArray numDictionaries = new COSArray();
     private int currentMCID = 0;
+    private int currentStructParent = 1;
     private final float PAGE_HEIGHT = PDRectangle.A4.getHeight();
     private final float PAGE_WIDTH = PDRectangle.A4.getWidth();
     private final String DEFAULT_APPEARANCE = "/Helv 10 Tf 0 g";
@@ -83,18 +86,6 @@ class PDFormBuilder {
         defaultFont = PDType0Font.load(pdf,
                 new PDTrueTypeFont(PDType1Font.HELVETICA.getCOSObject()).getTrueTypeFont(), true);
         resources.put(COSName.getPDFName("Helv"), defaultFont);
-        /*PDExtendedGraphicsState extendedGraphicsState = new PDExtendedGraphicsState();
-        extendedGraphicsState.getCOSObject().setBoolean(COSName.AIS, false);
-        extendedGraphicsState.getCOSObject().setName(COSName.BM, "Normal");
-        extendedGraphicsState.getCOSObject().setFloat(COSName.CA, 1.0f);
-        extendedGraphicsState.getCOSObject().setBoolean(COSName.OP, false);
-        extendedGraphicsState.getCOSObject().setInt(COSName.OPM, 1);
-        extendedGraphicsState.getCOSObject().setBoolean(COSName.SA, false);
-        extendedGraphicsState.getCOSObject().setName(COSName.TYPE, "ExtGState");
-        extendedGraphicsState.getCOSObject().setName(COSName.SMASK, "None");
-        extendedGraphicsState.getCOSObject().setFloat(COSName.getPDFName("ca"), 1.0f);
-        extendedGraphicsState.getCOSObject().setBoolean(COSName.getPDFName("op"), false);
-        resources.put(COSName.EXT_G_STATE, extendedGraphicsState);*/
         acroForm.setNeedAppearances(true);
         acroForm.setXFA(null);
         acroForm.setDefaultResources(resources);
@@ -183,24 +174,23 @@ class PDFormBuilder {
             pdf.addPage(pages.get(pages.size() - 1));
         }
         nums.add(COSInteger.get(0));
-        nums.add(new COSArray());
 
     }
 
     //Add a text box at a given location starting from the top-left corner.
-    void addTextField(float x, float y, float width, float height, int fontSize, String name, String value,
-                      int pageIndex) throws IOException {
+    private PDAnnotationWidget addTextField(float x, float y, float width, float height, String name, int pageIndex) throws IOException {
+
         PDRectangle rect = new PDRectangle(x, PAGE_HEIGHT - height - y, width, height);
 
         //Create the form field and add it to the acroForm object with a given name.
         fields.add(new PDTextField(acroForm));
         fields.get(fields.size() - 1).setPartialName(name);
         fields.get(fields.size() - 1).setAlternateFieldName(name);
+        fields.get(fields.size() - 1).setValue("");
         ((PDTextField)fields.get(fields.size() - 1)).setDefaultAppearance(FIELD_APPEARANCE);
         ((PDTextField)fields.get(fields.size() - 1)).setMultiline(true);
         acroForm.getFields().add(fields.get(fields.size() - 1));
 
-        List<PDAnnotationWidget> widgets = new ArrayList<>();
         // Specify a widget associated with the field.
         PDAnnotationWidget widget = new PDAnnotationWidget();
         widget.setRectangle(rect);
@@ -211,89 +201,88 @@ class PDFormBuilder {
         fieldAppearance.setBackground(fieldBGColor);
         widget.setAppearanceCharacteristics(fieldAppearance);
         widget.setParent(((PDTextField)fields.get(fields.size() - 1)));
-
-        //Set annotation to visible on print
         widget.setPrinted(true);
+
+        //Add object reference to widget for tagging purposes.
+        PDObjectReference objectReference = new PDObjectReference();
+        objectReference.setReferencedObject(widget);
+        annotationRefs.add(objectReference);
+        widget.getCOSObject().setInt(COSName.STRUCT_PARENT, currentStructParent);
+        currentStructParent++;
+
+        //Add the widget to the page.
         widgets.add(widget);
-        pages.get(pageIndex).getAnnotations().add(widgets.get(0));
-        ((PDTextField)fields.get(fields.size() - 1)).setWidgets(widgets);
-        fields.get(fields.size() - 1).setValue(value);
+        pages.get(pageIndex).getAnnotations().add(widgets.get(widgets.size() - 1));
+        ((PDTextField)fields.get(fields.size() - 1)).setWidgets(Collections.singletonList(widgets.get(widgets.size() - 1)));
+        return widgets.get(widgets.size() - 1);
     }
 
     //Add radio buttons at a given location starting from the top-left corner with or without text labels.
-    void addRadioField(float x, float y, float width, float height, int fontSize, String name, List<String> values,
-                       int pageIndex, boolean text) throws IOException {
-        //Create the form field and add it to the acroForm object with a given name.
-        fields.add(new PDRadioButton(acroForm));
-        fields.get(fields.size() - 1).setPartialName(name);
-        fields.get(fields.size() - 1).setAlternateFieldName(name);
-        ((PDRadioButton)fields.get(fields.size() - 1)).setExportValues(values);
-        fields.get(fields.size() - 1).getCOSObject().setName(COSName.DV, values.get(0));
-        acroForm.getFields().add(fields.get(fields.size() - 1));
+    private PDAnnotationWidget addRadioButton(float x, float y, float width, float height, List<String> values,
+                                      int pageIndex, int valueIndex) throws IOException {
 
-        List<PDAnnotationWidget> widgets = new ArrayList<>();
-        for (int i = 0; i < values.size(); i++) {
-            PDRectangle rect = new PDRectangle(
-                    x + i * (width / values.size()), PAGE_HEIGHT - height - y, width / values.size(), height);
+        //Bounding box for the widget.
+        PDRectangle rect = new PDRectangle(
+                x + valueIndex * (width / values.size()), PAGE_HEIGHT - height - y, width / values.size(), height);
+        // Specify a widget associated with the field
+        PDAnnotationWidget widget = new PDAnnotationWidget();
+        widget.setRectangle(rect);
+        widget.setPage(pages.get(pageIndex));
 
-            // Specify a widget associated with the field
-            PDAnnotationWidget widget = new PDAnnotationWidget();
-            widget.setRectangle(rect);
-            widget.setPage(pages.get(pageIndex));
+        //Appearance will always default to black border with white background.
+        PDAppearanceCharacteristicsDictionary fieldAppearance
+                = new PDAppearanceCharacteristicsDictionary(new COSDictionary());
+        fieldAppearance.setBorderColour(PDConstants.BLACK);
+        fieldAppearance.setBackground(PDConstants.WHITE);
+        widget.setAppearanceCharacteristics(fieldAppearance);
 
-            //Appearance will always default to black border with white background.
-            PDAppearanceCharacteristicsDictionary fieldAppearance
-                    = new PDAppearanceCharacteristicsDictionary(new COSDictionary());
-            fieldAppearance.setBorderColour(PDConstants.BLACK);
-            fieldAppearance.setBackground(PDConstants.WHITE);
-            widget.setAppearanceCharacteristics(fieldAppearance);
+        //Tie data values to the PDF document.
+        PDAppearanceDictionary appearance = new PDAppearanceDictionary();
+        COSDictionary dict = new COSDictionary();
+        dict.setItem(COSName.getPDFName("Off"), new COSDictionary());
+        dict.setItem(COSName.getPDFName(values.get(valueIndex)), new COSDictionary());
+        PDAppearanceEntry appearanceEntry = new PDAppearanceEntry(dict);
+        appearance.setNormalAppearance(appearanceEntry);
+        widget.setPrinted(true);
 
-            //Tie data values to the PDF document.
-            PDAppearanceDictionary appearance = new PDAppearanceDictionary();
-            COSDictionary dict = new COSDictionary();
-            dict.setItem(COSName.getPDFName("Off"), new COSDictionary());
-            dict.setItem(COSName.getPDFName(values.get(i)), new COSDictionary());
-            PDAppearanceEntry appearanceEntry = new PDAppearanceEntry(dict);
-            appearance.setNormalAppearance(appearanceEntry);
-            //widget.setAppearance(appearance);
+        //Add object reference to widget for tagging purposes.
+        PDObjectReference objectReference = new PDObjectReference();
+        objectReference.setReferencedObject(widget);
+        annotationRefs.add(objectReference);
+        widget.getCOSObject().setInt(COSName.STRUCT_PARENT, currentStructParent);
+        currentStructParent++;
 
-            //Set annotation to visible when printing.
-            widget.setPrinted(true);
-            widgets.add(widget);
-            pages.get(pageIndex).getAnnotations().add(widgets.get(widgets.size() - 1));
-            if (text) {
-                PDPageContentStream contents = new PDPageContentStream(
-                        pdf, pages.get(pageIndex), PDPageContentStream.AppendMode.APPEND, false);
-                setNextMarkedContentDictionary("P");
-                contents.beginMarkedContent(COSName.P, PDPropertyList.create(currentMarkedContentDictionary));
-                drawText(rect.getLowerLeftX() + rect.getWidth() / 10,
-                        PAGE_HEIGHT - rect.getLowerLeftY() - rect.getHeight() / 2,
-                        fontSize, values.get(i), Color.black, contents);
-                contents.close();
-                addContentToParent(COSName.S, StandardStructureTypes.P, pages.get(pageIndex), currentElem);
-            }
-        }
+        //Add the widget to the page.
+        widgets.add(widget);
+        pages.get(pageIndex).getAnnotations().add(widgets.get(widgets.size() - 1));
 
-        ((PDRadioButton) fields.get(fields.size() - 1)).setWidgets(widgets);
-        ((PDRadioButton) fields.get(fields.size() - 1)).setDefaultValue(values.get(0));
+        return widgets.get(widgets.size() - 1);
     }
 
     //Given a DataTable (Even an irregular table) will draw each cell and any given text.
-    void drawDataTable(DataTable table, float x, float y, int pageIndex) throws IOException {
+    void drawDataTable(DataTable table, float x, float y, int pageIndex, List<String> radioValues, String radioName) throws IOException {
+
         //Create a stream for drawing table's contents and append table structure element to the current form's structure element.
         PDStructureElement currentTable = addContentToParent(null, StandardStructureTypes.TABLE, pages.get(pageIndex), currentForm);
+
         //Go through each row and add a TR structure element to the table structure element.
         for (int i = 0; i < table.getRows().size(); i++) {
-            PDStructureElement currentRow = addContentToParent(null, StandardStructureTypes.TR, pages.get(pageIndex), currentTable);
+
             //Go through each column and draw the cell and any cell's text with given alignment.
+            PDStructureElement currentRow = addContentToParent(null, StandardStructureTypes.TR, pages.get(pageIndex), currentTable);
+            ArrayList<PDAnnotationWidget> radioWidgets = new ArrayList<>();
+
             for(int j = 0; j < table.getRows().get(i).getCells().size(); j++) {
+
+                //Set up the next marked content element with an MCID and create the containing TD structure element.
                 PDPageContentStream contents = new PDPageContentStream(
                         pdf, pages.get(pageIndex), PDPageContentStream.AppendMode.APPEND, false);
-                //Set up the next marked content element with an MCID and create the containing TD structure element.
                 currentElem = addContentToParent(null, StandardStructureTypes.TD, pages.get(pageIndex), currentRow);
+
                 //Make the actual cell rectangle and set as artifact to avoid detection.
                 setNextMarkedContentDictionary(COSName.ARTIFACT.getName());
                 contents.beginMarkedContent(COSName.ARTIFACT, PDPropertyList.create(currentMarkedContentDictionary));
+
                 //Draws the cell itself with the given colors and location.
                 drawDataCell(table.getCell(i, j).getCellColor(), table.getCell(i, j).getBorderColor(),
                         x + table.getRows().get(i).getCellPosition(j),
@@ -302,11 +291,14 @@ class PDFormBuilder {
                 contents.endMarkedContent();
                 currentElem = addContentToParent(COSName.ARTIFACT, StandardStructureTypes.P, pages.get(pageIndex), currentElem);
                 contents.close();
+
                 //Draw the cell's text as
                 contents = new PDPageContentStream(
                         pdf, pages.get(pageIndex), PDPageContentStream.AppendMode.APPEND, false);
                 setNextMarkedContentDictionary(COSName.P.getName());
                 contents.beginMarkedContent(COSName.P, PDPropertyList.create(currentMarkedContentDictionary));
+
+                //Choose alignment...
                 if (table.getCell(i, j).getAlign().equalsIgnoreCase(PDConstants.CENTER_ALIGN)) {
 
                     //Draws the given text centered within the current table cell.
@@ -335,10 +327,44 @@ class PDFormBuilder {
                             table.getCell(i, j).getTextColor(), contents);
 
                 }
+
                 //End the marked content and append it's P structure element to the containing TD structure element.
                 contents.endMarkedContent();
                 addContentToParent(COSName.P, null, pages.get(pageIndex), currentElem);
                 contents.close();
+
+                //Add a radio button widget.
+                if (!table.getCell(i, j).getRbVal().isEmpty()) {
+                    //PDStructureElement fieldElem = new PDStructureElement(StandardStructureTypes.RB, currentElem);
+                    radioWidgets.add(addRadioButton(
+                            x + table.getRows().get(i).getCellPosition(j) -
+                                    radioWidgets.size() * 10 + table.getCell(i, j).getWidth() / 4,
+                            y + table.getRowPosition(i),
+                            table.getCell(i, j).getWidth() * 1.5f, 20,
+                            radioValues, pageIndex, radioWidgets.size()));
+                    //currentElem.appendKid(fieldElem);
+                    //fieldElem.appendKid(annotationRefs.get(0));
+                }
+
+                if (radioValues.size() == radioWidgets.size()) {
+                    //Create the form field and add it to the acroForm object with a given name.
+                    fields.add(new PDRadioButton(acroForm));
+                    fields.get(fields.size() - 1).setPartialName(radioName);
+                    fields.get(fields.size() - 1).setAlternateFieldName(radioName + " Row " + (i + 1) + " Column " + (j + 1));
+                    ((PDRadioButton)fields.get(fields.size() - 1)).setExportValues(radioValues);
+                    fields.get(fields.size() - 1).getCOSObject().setName(COSName.DV, radioValues.get(0));
+                    acroForm.getFields().add(fields.get(fields.size() - 1));
+                    ((PDRadioButton) fields.get(fields.size() - 1)).setWidgets(radioWidgets);
+                    ((PDRadioButton) fields.get(fields.size() - 1)).setDefaultValue(radioValues.get(0));
+                }
+
+                //Add a text field in the current cell.
+                if (!table.getCell(i, j).getTextVal().isEmpty()) {
+                    addTextField(x + table.getRows().get(i).getCellPosition(j),
+                            y + table.getRowPosition(i),
+                            table.getCell(i, j).getWidth(), table.getRows().get(i).getHeight(),
+                            table.getCell(i, j).getTextVal(), pageIndex);
+                }
 
             }
         }
@@ -418,113 +444,25 @@ class PDFormBuilder {
         currentMCID++;
     }
 
-    //List all alternate descriptions given root struct elem.
-    void checkTreeStructure(List<Object> kids) {
-        for (Object o : kids) {
-            if (o instanceof PDStructureElement) {
-                PDStructureElement structElement = (PDStructureElement)o;
-                checkTreeStructure(structElement.getKids());
-                System.out.println(structElement.getAlternateDescription());
-            }
-        }
-    }
-
-    //Not working still experimental
-    void checkMarkedContent() throws IOException {
-        PDFMarkedContentExtractor markedContentExtractor = new PDFMarkedContentExtractor("UTF-8");
-        markedContentExtractor.processPage(pdf.getPage(0));
-        List<PDMarkedContent>  markedContents = markedContentExtractor.getMarkedContents();
-        for (Object o: markedContents) {
-            if (o instanceof PDMarkedContent) {
-                PDMarkedContent pdMarkedContent = (PDMarkedContent) o;
-                System.out.println("mcid=" + pdMarkedContent.getMCID() + ", " + pdMarkedContent.toString());
-            } else {
-                System.out.println(o.toString());
-            }
-        }
-    }
-
-    void addTaggingOperators() throws IOException {
-        addParentTree();
-    }
-
     void addParentTree() {
         COSDictionary dict = new COSDictionary();
-        nums.set(1, numDictionaries);
+        nums.add(numDictionaries);
+        for (int i = 1; i < currentStructParent; i++) {
+            nums.add(COSInteger.get(i));
+            COSDictionary annotDict = new COSDictionary();
+            COSArray annotArray = new COSArray();
+            annotArray.add(COSInteger.get(i * 2));
+            annotArray.add(annotationRefs.get(i - 1));
+            annotDict.setItem(COSName.K, annotArray);
+            annotDict.setString(COSName.LANG, "EN-US");
+            annotDict.setItem(COSName.P, currentElem.getCOSObject());
+            annotDict.setItem(COSName.PG, pages.get(0).getCOSObject());
+            annotDict.setName(COSName.S, "RB");
+            nums.add(annotDict);
+        }
         dict.setItem(COSName.NUMS, nums);
         PDNumberTreeNode numberTreeNode = new PDNumberTreeNode(dict, dict.getClass());
         pdf.getDocumentCatalog().getStructureTreeRoot().setParentTree(numberTreeNode);
-    }
-
-    private static void writeTokensToStream(PDStream newContents, List<Object> newTokens) throws IOException {
-        try (OutputStream out = newContents.createOutputStream(COSName.FLATE_DECODE)) {
-            ContentStreamWriter writer = new ContentStreamWriter(out);
-            writer.writeTokens(newTokens);
-        }
-    }
-
-    private static List<Object> createTokensWithoutText(PDContentStream contentStream) throws IOException {
-        PDFStreamParser parser = new PDFStreamParser(contentStream);
-        Object token = parser.parseNextToken();
-        List<Object> newTokens = new ArrayList<>();
-        Integer currentMCID = 1;
-        while (token != null) {
-            if (token instanceof Operator) {
-                Operator op = (Operator) token;
-                System.out.println("Operator: " + op.getName());
-                if (op.getName().equals("BT")) {
-                    token = parser.parseNextToken();
-                    continue;
-                } else if (op.getName().equals("ET")) {
-                    token = parser.parseNextToken();
-                    continue;
-                } else if (op.getName().equals("EMC")) {
-                    newTokens.add(token);
-                    newTokens.add(Operator.getOperator("ET"));
-                    token = parser.parseNextToken();
-                    continue;
-                } else if (op.getName().equals("Tf")) {
-                    newTokens.add(token);
-                    newTokens.add(COSInteger.get(0));
-                    newTokens.add(Operator.getOperator("Tc"));
-                    newTokens.add(COSInteger.get(0));
-                    newTokens.add(Operator.getOperator("Tw"));
-                    token = parser.parseNextToken();
-                    continue;
-                }
-            } else  if (token instanceof COSInteger) {
-                COSInteger integer = (COSInteger)token;
-                System.out.println(token.getClass().getName().split("\\.")[4] + ": " + (integer.intValue()));
-            } else  if (token instanceof COSString) {
-                COSString string = (COSString)token;
-                System.out.println(token.getClass().getName().split("\\.")[4] + ": " + (string.getString()));
-            } else  if (token instanceof COSName) {
-                COSName name = (COSName)token;
-                if (name.getName().contains("OC")) {
-                    newTokens.add(Operator.getOperator("BT"));
-                    COSDictionary mcidDict = new COSDictionary();
-                    mcidDict.setInt(COSName.MCID, currentMCID);
-                    newTokens.add(COSName.P);
-                    newTokens.add(mcidDict);
-                    System.out.println("New COSDict: " + (mcidDict.toString()));
-                    currentMCID++;
-                    token = parser.parseNextToken();
-                    continue;
-                } else if (name.getName().contains("Prop")) {
-                    token = parser.parseNextToken();
-                    continue;
-                }
-                System.out.println(token.getClass().getName().split("\\.")[4] + ": " + (name.getName()));
-            } else  if (token instanceof COSFloat) {
-                COSFloat floatP = (COSFloat)token;
-                System.out.println(token.getClass().getName().split("\\.")[4] + ": " + (floatP.floatValue()));
-            } else {
-                System.out.println("OTHER");
-            }
-            newTokens.add(token);
-            token = parser.parseNextToken();
-        }
-        return newTokens;
     }
 
     //Add a blank page to the document.

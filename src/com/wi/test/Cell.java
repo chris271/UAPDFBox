@@ -3,7 +3,8 @@ package com.wi.test;
 import java.awt.Color;
 
 class Cell {
-    final int col;
+    private String rbVal = "";
+    private String textVal = "";
     private int fontSize = 10;
     private float width = 0;
     private String text = "";
@@ -12,30 +13,19 @@ class Cell {
     private Color textColor = null;
     private Color borderColor = null;
 
-    Cell(int col, String text, Color cellColor, Color textColor, Color borderColor,
-         float width, int fontSize, String align) {
-        this.col = col;
+    Cell(String text, int fontSize, float width, String align, String rbVal, String textVal) {
         this.text = text;
-        this.cellColor = cellColor;
-        this.textColor = textColor;
-        this.borderColor = borderColor;
         this.fontSize = fontSize;
-        this.width = width;
-        this.align = align;
-    }
-
-    Cell(int col, String text, float width, String align) {
-        this.col = col;
-        this.text = text;
         this.cellColor = Color.white;
         this.textColor = Color.black;
         this.borderColor = Color.black;
         this.width = width;
         this.align = align;
+        this.rbVal = rbVal;
+        this.textVal = textVal;
     }
 
-    Cell(int col, String text, int fontSize, float width, String align) {
-        this.col = col;
+    Cell(String text, int fontSize, float width, String align) {
         this.text = text;
         this.fontSize = fontSize;
         this.cellColor = Color.white;
@@ -45,8 +35,7 @@ class Cell {
         this.align = align;
     }
 
-    Cell(int col, String text, Color cellColor, int fontSize, float width, String align) {
-        this.col = col;
+    Cell(String text, Color cellColor, int fontSize, float width, String align) {
         this.text = text;
         this.fontSize = fontSize;
         this.cellColor = cellColor;
@@ -111,7 +100,23 @@ class Cell {
     public void setWidth(float width) {
         this.width = width;
     }
-    
+
+    public String getRbVal() {
+        return rbVal;
+    }
+
+    public void setRbVal(String rbVal) {
+        this.rbVal = rbVal;
+    }
+
+    public String getTextVal() {
+        return textVal;
+    }
+
+    public void setTextVal(String textVal) {
+        this.textVal = textVal;
+    }
+
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("{ \n");
