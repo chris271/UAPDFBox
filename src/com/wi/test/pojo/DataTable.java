@@ -4,7 +4,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DataTable {
+
     private List<Row> rows = new ArrayList<>();
+
+    public DataTable() { }
+
+    public DataTable(List<Row> rows) {
+        this.rows = rows;
+    }
 
     public void addRow(Row row) {
         this.rows.add(row);

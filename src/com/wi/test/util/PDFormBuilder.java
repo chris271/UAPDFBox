@@ -178,6 +178,7 @@ public class PDFormBuilder {
         ((PDTextField)fields.get(fields.size() - 1)).setDefaultAppearance(FIELD_APPEARANCE);
         ((PDTextField)fields.get(fields.size() - 1)).setMultiline(true);
         acroForm.getFields().add(fields.get(fields.size() - 1));
+        System.out.println(name);
 
         // Specify a widget associated with the field.
         PDAnnotationWidget widget = new PDAnnotationWidget();
@@ -231,7 +232,6 @@ public class PDFormBuilder {
         dict.setItem(COSName.getPDFName(values.get(valueIndex)), new COSDictionary());
         PDAppearanceEntry appearanceEntry = new PDAppearanceEntry(dict);
         appearance.setNormalAppearance(appearanceEntry);
-        widget.setAppearance(appearance);
         widget.setPrinted(true);
 
         //Add object reference to widget for tagging purposes.
@@ -246,6 +246,39 @@ public class PDFormBuilder {
         pages.get(pageIndex).getAnnotations().add(widgets.get(widgets.size() - 1));
 
         return widgets.get(widgets.size() - 1);
+    }
+
+    public void drawSectionHeader(float x, float y, float height, String text, Color bgColor, Color textColor, int fontSize,
+                               int pageIndex, PDStructureElement parent) throws IOException {
+
+        //Set up the next marked content element with an MCID and create the containing H1 structure element.
+        PDPageContentStream contents = new PDPageContentStream(
+                pdf, pages.get(pageIndex), PDPageContentStream.AppendMode.APPEND, false);
+        currentElem = addContentToParent(null, StandardStructureTypes.H1, pages.get(pageIndex), parent);
+
+        //Make the actual cell rectangle and set as artifact to avoid detection.
+        setNextMarkedContentDictionary(COSName.ARTIFACT.getName());
+        contents.beginMarkedContent(COSName.ARTIFACT, PDPropertyList.create(currentMarkedContentDictionary));
+
+        //Draws the cell itself with the given colors and location.
+        drawDataCell(bgColor, bgColor, x, y + height, PAGE_WIDTH - x * 2, height, contents);
+        contents.endMarkedContent();
+        addContentToParent(COSName.ARTIFACT, null, pages.get(pageIndex), currentElem);
+        contents.close();
+
+        //Draw the cell's text as
+        contents = new PDPageContentStream(
+                pdf, pages.get(pageIndex), PDPageContentStream.AppendMode.APPEND, false);
+        setNextMarkedContentDictionary(COSName.P.getName());
+        contents.beginMarkedContent(COSName.P, PDPropertyList.create(currentMarkedContentDictionary));
+
+        //Draws the given text centered within the current table cell.
+        drawText(x, y + height + fontSize, fontSize, text, textColor, contents);
+
+        //End the marked content and append it's P structure element to the containing TD structure element.
+        contents.endMarkedContent();
+        addContentToParent(COSName.P, null, pages.get(pageIndex), currentElem);
+        contents.close();
     }
 
     //Given a DataTable (Even an irregular table) will draw each cell and any given text.

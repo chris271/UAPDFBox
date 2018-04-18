@@ -45,6 +45,16 @@ public class Cell {
         this.align = align;
     }
 
+    public Cell(String text, Color cellColor, Color borderColor, int fontSize, float width, String align) {
+        this.text = text;
+        this.fontSize = fontSize;
+        this.cellColor = cellColor;
+        this.textColor = Color.black;
+        this.borderColor = borderColor;
+        this.width = width;
+        this.align = align;
+    }
+
     public String getAlign() {
         return align;
     }

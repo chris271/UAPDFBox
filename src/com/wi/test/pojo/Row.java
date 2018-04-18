@@ -14,6 +14,12 @@ public class Row {
         this.height = height;
     }
 
+    public Row(float height) {
+        this.height = height;
+    }
+
+    public Row() { }
+
     public void addCell(Cell cell) {
         cells.add(cell);
         cols++;
