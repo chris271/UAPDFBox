@@ -1,38 +1,38 @@
-package com.wi.test;
+package com.wi.test.pojo;
 
 import java.util.ArrayList;
 import java.util.List;
 
-class Row {
+public class Row {
     private List<Cell> cells = new ArrayList<>();
     private int cols = 0;
     private float height = 0;
 
-    Row(List<Cell> cells, float height) {
+    public Row(List<Cell> cells, float height) {
         this.cells = cells;
         cols = cells.size();
         this.height = height;
     }
 
-    void addCell(Cell cell) {
+    public void addCell(Cell cell) {
         cells.add(cell);
         cols++;
     }
 
-    int getCols() {
+    public int getCols() {
         return cols;
     }
 
-    List<Cell> getCells() {
+    public List<Cell> getCells() {
         return cells;
     }
 
-    void setCells(List<Cell> cells) {
+    public void setCells(List<Cell> cells) {
         this.cells = cells;
         cols = cells.size();
     }
 
-    float getCellPosition(int cellIndex) {
+    public float getCellPosition(int cellIndex) {
         float currentPosition = 0;
         for (int i = 0; i < cellIndex; i++) {
             currentPosition += cells.get(i).getWidth();
@@ -40,11 +40,11 @@ class Row {
         return currentPosition;
     }
 
-    float getHeight() {
+    public float getHeight() {
         return height;
     }
 
-    void setHeight(float height) {
+    public void setHeight(float height) {
         this.height = height;
     }
 

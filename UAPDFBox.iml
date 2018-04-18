@@ -58,5 +58,6 @@
     <orderEntry type="library" name="com.lowagie:itext:4.2.0" level="project" />
     <orderEntry type="library" name="com.fasterxml.jackson.core:jackson-core:2.8.4" level="project" />
     <orderEntry type="library" name="com.fasterxml.jackson.core:jackson-databind:2.8.4" level="project" />
+    <orderEntry type="library" name="jsoup-1.11.3" level="project" />
   </component>
 </module>

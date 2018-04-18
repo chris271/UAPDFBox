@@ -1,12 +1,15 @@
-package com.wi.test;
+package com.wi.test.app;
 
-import org.apache.pdfbox.pdmodel.PDDocument;
+import com.wi.test.constants.PDConstants;
+import com.wi.test.util.PDFormBuilder;
+import com.wi.test.pojo.Cell;
+import com.wi.test.pojo.DataTable;
+import com.wi.test.pojo.Row;
 import org.apache.pdfbox.pdmodel.documentinterchange.logicalstructure.PDStructureElement;
 import org.apache.xmpbox.schema.XmpSchemaException;
 
 import javax.xml.transform.TransformerException;
 import java.awt.Color;
-import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;

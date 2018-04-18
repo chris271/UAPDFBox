@@ -1,5 +1,7 @@
-package com.wi.test;
+package com.wi.test.util;
 
+import com.wi.test.constants.PDConstants;
+import com.wi.test.pojo.DataTable;
 import org.apache.pdfbox.cos.*;
 import org.apache.pdfbox.pdmodel.*;
 import org.apache.pdfbox.pdmodel.common.*;
@@ -37,7 +39,7 @@ import java.io.IOException;
 import java.io.ByteArrayOutputStream;
 import java.util.*;
 
-class PDFormBuilder {
+public class PDFormBuilder {
 
     private PDDocument pdf = null;
     private PDAcroForm acroForm = null;
@@ -62,7 +64,7 @@ class PDFormBuilder {
     private final String DEFAULT_APPEARANCE = "/Helv 10 Tf 0 g";
     private final String FIELD_APPEARANCE = "/Helv 12 Tf 0 g";
 
-    PDFormBuilder(int initPages, String title) throws IOException, TransformerException, XmpSchemaException {
+    public PDFormBuilder(int initPages, String title) throws IOException, TransformerException, XmpSchemaException {
         //Setup new document
         pdf = new PDDocument();
         acroForm = new PDAcroForm(pdf);
@@ -247,7 +249,7 @@ class PDFormBuilder {
     }
 
     //Given a DataTable (Even an irregular table) will draw each cell and any given text.
-    void drawDataTable(DataTable table, float x, float y, int pageIndex, List<String> radioValues,
+    public void drawDataTable(DataTable table, float x, float y, int pageIndex, List<String> radioValues,
                        String radioName, PDStructureElement parent) throws IOException {
 
         //Create a stream for drawing table's contents and append table structure element to the current form's structure element.
@@ -422,7 +424,7 @@ class PDFormBuilder {
         }
         //If COSName is not null then there is marked content.
         if (name != null) {
-            //nums.add(COSInteger.get(currentMCID - 1));
+            //numDict for parent tree
             COSDictionary numDict = new COSDictionary();
             numDict.setInt(COSName.K, currentMCID - 1);
             numDict.setString(COSName.LANG, "EN-US");
@@ -443,7 +445,6 @@ class PDFormBuilder {
                 numDict.setItem(COSName.P, parent.getCOSObject());
             }
             numDict.setName(COSName.S, name.getName());
-            //nums.add(numDict);
             numDictionaries.add(numDict);
         }
         if (structureElement != null) {
@@ -460,7 +461,8 @@ class PDFormBuilder {
         currentMCID++;
     }
 
-    void addParentTree() {
+    //Adds the parent tree to root struct element to identify tagged content
+    public void addParentTree() {
         COSDictionary dict = new COSDictionary();
         nums.add(numDictionaries);
         for (int i = 1; i < currentStructParent; i++) {
@@ -474,7 +476,7 @@ class PDFormBuilder {
     }
 
     //Add a blank page to the document.
-    void addPage() {
+    public void addPage() {
         PDPage page = new PDPage(PDRectangle.LETTER);
         page.getCOSObject().setItem(COSName.getPDFName("Tabs"), COSName.S);
         pages.add(page);
@@ -482,7 +484,7 @@ class PDFormBuilder {
     }
 
     //Adds a DOCUMENT structure element as the structure tree root.
-    void addRoot() {
+    public void addRoot() {
         PDStructureElement root = new PDStructureElement(StandardStructureTypes.DOCUMENT, null);
         root.setAlternateDescription("The document's root structure element.");
         root.setTitle("PDF Document");
@@ -492,7 +494,7 @@ class PDFormBuilder {
     }
 
     //Adds a PART structure element to the structure tree root.
-    PDStructureElement addPart() {
+    public PDStructureElement addPart() {
         PDStructureElement part = new PDStructureElement(StandardStructureTypes.PART,
                 pdf.getDocumentCatalog().getStructureTreeRoot());
         part.setAlternateDescription("The current pages main content part.");
@@ -503,27 +505,27 @@ class PDFormBuilder {
     }
 
     //Adds a SECT structure element to the given parent.
-    PDStructureElement addSection(PDStructureElement parent) {
+    public PDStructureElement addSection(PDStructureElement parent) {
         PDStructureElement sect = new PDStructureElement(StandardStructureTypes.SECT, parent);
         parent.appendKid(sect);
         currentElem = sect;
         return sect;
     }
 
-    void saveAndClose(String filePath) throws IOException {
+    public void saveAndClose(String filePath) throws IOException {
         pdf.save(filePath);
         pdf.close();
     }
 
-    PDDocument getPdf() {
+    public PDDocument getPdf() {
         return pdf;
     }
 
-    ArrayList<PDPage> getPages() {
+    public ArrayList<PDPage> getPages() {
         return pages;
     }
 
-    ArrayList<PDField> getFields() {
+    public ArrayList<PDField> getFields() {
         return fields;
     }
 
@@ -531,7 +533,7 @@ class PDFormBuilder {
         return fieldBGColor;
     }
 
-    void setFieldBGColor(PDColor fieldBGColor) {
+    public void setFieldBGColor(PDColor fieldBGColor) {
         this.fieldBGColor = fieldBGColor;
     }
 
@@ -539,7 +541,7 @@ class PDFormBuilder {
         return fieldBorderColor;
     }
 
-    void setFieldBorderColor(PDColor fieldBorderColor) {
+    public void setFieldBorderColor(PDColor fieldBorderColor) {
         this.fieldBorderColor = fieldBorderColor;
     }
 

@@ -1,8 +1,8 @@
-package com.wi.test;
+package com.wi.test.pojo;
 
 import java.awt.Color;
 
-class Cell {
+public class Cell {
     private String rbVal = "";
     private String textVal = "";
     private int fontSize = 10;
@@ -13,7 +13,7 @@ class Cell {
     private Color textColor = null;
     private Color borderColor = null;
 
-    Cell(String text, int fontSize, float width, String align, String rbVal, String textVal) {
+    public Cell(String text, int fontSize, float width, String align, String rbVal, String textVal) {
         this.text = text;
         this.fontSize = fontSize;
         this.cellColor = Color.white;
@@ -25,7 +25,7 @@ class Cell {
         this.textVal = textVal;
     }
 
-    Cell(String text, int fontSize, float width, String align) {
+    public Cell(String text, int fontSize, float width, String align) {
         this.text = text;
         this.fontSize = fontSize;
         this.cellColor = Color.white;
@@ -35,7 +35,7 @@ class Cell {
         this.align = align;
     }
 
-    Cell(String text, Color cellColor, int fontSize, float width, String align) {
+    public Cell(String text, Color cellColor, int fontSize, float width, String align) {
         this.text = text;
         this.fontSize = fontSize;
         this.cellColor = cellColor;
@@ -45,51 +45,51 @@ class Cell {
         this.align = align;
     }
 
-    String getAlign() {
+    public String getAlign() {
         return align;
     }
 
-    void setAlign(String align) {
+    public void setAlign(String align) {
         this.align = align;
     }
 
-    String getText() {
+    public String getText() {
         return text;
     }
 
-    void setText(String text) {
+    public void setText(String text) {
         this.text = text;
     }
 
-    Color getCellColor() {
+    public Color getCellColor() {
         return cellColor;
     }
 
-    void setCellColor(Color cellColor) {
+    public void setCellColor(Color cellColor) {
         this.cellColor = cellColor;
     }
 
-    Color getTextColor() {
+    public Color getTextColor() {
         return textColor;
     }
 
-    void setTextColor(Color textColor) {
+    public void setTextColor(Color textColor) {
         this.textColor = textColor;
     }
 
-    Color getBorderColor() {
+    public Color getBorderColor() {
         return borderColor;
     }
 
-    void setBorderColor(Color borderColor) {
+    public void setBorderColor(Color borderColor) {
         this.borderColor = borderColor;
     }
 
-    int getFontSize() {
+    public int getFontSize() {
         return fontSize;
     }
 
-    void setFontSize(int fontSize) {
+    public void setFontSize(int fontSize) {
         this.fontSize = fontSize;
     }
 
