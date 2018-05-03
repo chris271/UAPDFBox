@@ -1,32 +1,34 @@
 package com.wi.test.pojo;
 
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class Row {
     private List<Cell> cells = new ArrayList<>();
-    private int cols = 0;
     private float height = 0;
+    private int selectedRadio = -1;
+    private List<String> radioValues = new ArrayList<>();
+    private List<PDAnnotationWidget> radioWidgets = new ArrayList<>();
+    private String radioName = "";
 
-    public Row(List<Cell> cells, float height) {
+    public Row(List<Cell> cells, List<String> radioValues, String radioName, float height) {
         this.cells = cells;
-        cols = cells.size();
         this.height = height;
+        this.radioValues = radioValues;
+        this.radioName = radioName;
     }
 
-    public Row(float height) {
+    public Row(List<Cell> cells, float height) {
         this.height = height;
+        this.cells = cells;
     }
 
     public Row() { }
 
     public void addCell(Cell cell) {
         cells.add(cell);
-        cols++;
-    }
-
-    public int getCols() {
-        return cols;
     }
 
     public List<Cell> getCells() {
@@ -35,7 +37,6 @@ public class Row {
 
     public void setCells(List<Cell> cells) {
         this.cells = cells;
-        cols = cells.size();
     }
 
     public float getCellPosition(int cellIndex) {
@@ -52,6 +53,38 @@ public class Row {
 
     public void setHeight(float height) {
         this.height = height;
+    }
+
+    public List<String> getRadioValues() {
+        return radioValues;
+    }
+
+    public void setRadioValues(List<String> radioValues) {
+        this.radioValues = radioValues;
+    }
+
+    public String getRadioName() {
+        return radioName;
+    }
+
+    public void setRadioName(String radioName) {
+        this.radioName = radioName;
+    }
+
+    public List<PDAnnotationWidget> getRadioWidgets() {
+        return radioWidgets;
+    }
+
+    public void addRadioWidget(PDAnnotationWidget radioWidget) {
+        this.radioWidgets.add(radioWidget);
+    }
+
+    public int getSelectedRadio() {
+        return selectedRadio;
+    }
+
+    public void setSelectedRadio(int selectedRadio) {
+        this.selectedRadio = selectedRadio;
     }
 
     public String toString() {

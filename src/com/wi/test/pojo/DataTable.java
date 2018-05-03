@@ -6,14 +6,22 @@ import java.util.List;
 public class DataTable {
 
     private List<Row> rows = new ArrayList<>();
+    private String summary = "";
+    private String id = "";
 
-    public DataTable() { }
+    public DataTable(String summary, String id) {
+        this.summary = summary;
+        this.id = id;
+    }
 
-    public DataTable(List<Row> rows) {
+    public DataTable(List<Row> rows, String summary, String id) {
         this.rows = rows;
+        this.summary = summary;
+        this.id = id;
     }
 
     public void addRow(Row row) {
+        row.setRadioName(row.getRadioName() + " " + this.getId() + " Row " + rows.size());
         this.rows.add(row);
     }
 
@@ -35,6 +43,22 @@ public class DataTable {
 
     public void setRows(List<Row> rows) {
         this.rows = rows;
+    }
+
+    public String getSummary() {
+        return summary;
+    }
+
+    public void setSummary(String summary) {
+        this.summary = summary;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String toString() {

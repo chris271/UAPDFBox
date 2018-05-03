@@ -12,8 +12,9 @@ public class Cell {
     private Color cellColor = null;
     private Color textColor = null;
     private Color borderColor = null;
+    private TableCellMarkup cellMarkup = null;
 
-    public Cell(String text, int fontSize, float width, String align, String rbVal, String textVal) {
+    public Cell(String text, int fontSize, float width, String align, String rbVal, String textVal, TableCellMarkup cellMarkup) {
         this.text = text;
         this.fontSize = fontSize;
         this.cellColor = Color.white;
@@ -23,9 +24,22 @@ public class Cell {
         this.align = align;
         this.rbVal = rbVal;
         this.textVal = textVal;
+        this.cellMarkup = cellMarkup;
     }
 
-    public Cell(String text, int fontSize, float width, String align) {
+    public Cell(String text, int fontSize, float width, String align, String textVal, TableCellMarkup cellMarkup) {
+        this.text = text;
+        this.fontSize = fontSize;
+        this.cellColor = Color.white;
+        this.textColor = Color.black;
+        this.borderColor = Color.white;
+        this.width = width;
+        this.align = align;
+        this.textVal = textVal;
+        this.cellMarkup = cellMarkup;
+    }
+
+    public Cell(String text, int fontSize, float width, String align, TableCellMarkup cellMarkup) {
         this.text = text;
         this.fontSize = fontSize;
         this.cellColor = Color.white;
@@ -33,9 +47,10 @@ public class Cell {
         this.borderColor = Color.black;
         this.width = width;
         this.align = align;
+        this.cellMarkup = cellMarkup;
     }
 
-    public Cell(String text, Color cellColor, int fontSize, float width, String align) {
+    public Cell(String text, Color cellColor, int fontSize, float width, String align, TableCellMarkup cellMarkup) {
         this.text = text;
         this.fontSize = fontSize;
         this.cellColor = cellColor;
@@ -43,9 +58,10 @@ public class Cell {
         this.borderColor = Color.black;
         this.width = width;
         this.align = align;
+        this.cellMarkup = cellMarkup;
     }
 
-    public Cell(String text, Color cellColor, Color borderColor, int fontSize, float width, String align) {
+    public Cell(String text, Color cellColor, Color borderColor, int fontSize, float width, String align, TableCellMarkup cellMarkup) {
         this.text = text;
         this.fontSize = fontSize;
         this.cellColor = cellColor;
@@ -53,6 +69,18 @@ public class Cell {
         this.borderColor = borderColor;
         this.width = width;
         this.align = align;
+        this.cellMarkup = cellMarkup;
+    }
+
+    public Cell(String text, Color cellColor, Color textColor, int fontSize, float width, String align) {
+        this.text = text;
+        this.fontSize = fontSize;
+        this.cellColor = cellColor;
+        this.textColor = textColor;
+        this.borderColor = Color.WHITE;
+        this.width = width;
+        this.align = align;
+        this.cellMarkup = new TableCellMarkup();
     }
 
     public String getAlign() {
@@ -125,6 +153,14 @@ public class Cell {
 
     public void setTextVal(String textVal) {
         this.textVal = textVal;
+    }
+
+    public TableCellMarkup getCellMarkup() {
+        return cellMarkup;
+    }
+
+    public void setCellMarkup(TableCellMarkup cellMarkup) {
+        this.cellMarkup = cellMarkup;
     }
 
     public String toString() {
